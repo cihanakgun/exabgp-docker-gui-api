@@ -1,0 +1,21 @@
+# Credentials
+.env
+exabgp.conf
+
+# ExaBGP runtime — socket and SQLite DB, created at startup
+exabgp-run/
+
+# HAProxy TLS certificate — generated at container startup, never commit
+haproxy-certs/
+
+# Python
+__pycache__/
+*.pyc
+
+# Docker
+*.log
+
+DB
+*.db
+
+.DS_Store

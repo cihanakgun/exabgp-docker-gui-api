@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ExaBGP · History</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0d1117; --bg2: #161b22; --bg3: #21262d;
+    --border: #30363d; --text: #e6edf3; --muted: #7d8590;
+    --green: #3fb950; --green-dim: #1a4a1f;
+    --red: #f85149;   --red-dim:   #4a1414;
+    --blue: #58a6ff;  --blue-dim:  #1a3a5c;
+    --yellow: #d29922;
+    --purple: #bc8cff; --purple-dim: #2d1f4a;
+    --cyan: #39d0d8;   --cyan-dim:   #0e3a3c;
+    --orange: #e3722a;
+    --font-mono: 'JetBrains Mono', monospace;
+    --font-sans: 'Inter', sans-serif;
+    --radius: 6px;
+  }
+  body { background: var(--bg); color: var(--text); font-family: var(--font-sans); font-size: 14px; min-height: 100vh; }
+
+  header { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 0 24px; height: 56px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+  .logo { display: flex; align-items: center; gap: 10px; font-family: var(--font-mono); font-size: 15px; font-weight: 600; color: var(--green); }
+  .logo-icon { width: 28px; height: 28px; background: var(--green-dim); border: 1px solid var(--green); border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+  .header-right { display: flex; align-items: center; gap: 10px; }
+
+  .btn { border-radius: var(--radius); cursor: pointer; font-size: 13px; font-family: var(--font-sans); padding: 5px 12px; transition: all 0.15s; display: inline-flex; align-items: center; gap: 5px; border: 1px solid; background: none; }
+  .btn-ghost { border-color: var(--border); color: var(--muted); }
+  .btn-ghost:hover { border-color: var(--blue); color: var(--blue); }
+  .btn-green { background: var(--green-dim); border-color: var(--green); color: var(--green); font-weight: 500; }
+  .btn-green:hover { background: #26663b; }
+
+  main { max-width: 1400px; margin: 0 auto; padding: 24px; }
+
+  /* Filters */
+  .filters {
+    background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 16px 20px; margin-bottom: 20px;
+    display: grid; grid-template-columns: auto auto 1fr 1fr auto auto; gap: 12px; align-items: end;
+  }
+  .filter-group { display: flex; flex-direction: column; gap: 5px; }
+  label.filter-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 500; }
+  select, input[type="date"], input[type="text"] {
+    background: var(--bg3); border: 1px solid var(--border); color: var(--text);
+    padding: 7px 10px; border-radius: var(--radius); font-family: var(--font-mono);
+    font-size: 12px; outline: none; transition: border-color 0.15s; cursor: pointer;
+  }
+  select:focus, input:focus { border-color: var(--blue); }
+  input[type="date"] { color-scheme: dark; }
+
+  /* Stats row */
+  .history-stats { display: flex; gap: 16px; margin-bottom: 16px; font-family: var(--font-mono); font-size: 12px; color: var(--muted); align-items: center; }
+  .history-stats strong { color: var(--text); }
+
+  /* Table */
+  .table-wrap { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; }
+  thead th { background: var(--bg3); padding: 9px 14px; text-align: left; font-family: var(--font-mono); font-size: 11px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); white-space: nowrap; cursor: pointer; user-select: none; }
+  thead th:hover { color: var(--text); }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--bg3); }
+  td { padding: 9px 14px; vertical-align: middle; font-family: var(--font-mono); font-size: 12px; }
+
+  /* Badges */
+  .badge { display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 500; white-space: nowrap; }
+  .badge-announce { background: var(--green-dim); color: var(--green); border: 1px solid #2a6b33; }
+  .badge-withdraw { background: var(--red-dim);   color: var(--red);   border: 1px solid #6b2020; }
+  .badge-route    { background: var(--blue-dim);  color: var(--blue);  border: 1px solid #1a4a7a; }
+  .badge-rbth     { background: var(--purple-dim); color: var(--purple); border: 1px solid #5a3a8a; }
+  .badge-flow     { background: var(--cyan-dim);  color: var(--cyan);  border: 1px solid #1a6b70; }
+  .badge-ok       { background: var(--green-dim); color: var(--green); border: 1px solid #2a6b33; font-size: 10px; }
+  .badge-error    { background: var(--red-dim);   color: var(--red);   border: 1px solid #6b2020; font-size: 10px; }
+
+  .target-cell { color: var(--text); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .comment-cell { color: var(--muted); font-family: var(--font-sans); font-style: italic; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+  .performer-cell { color: var(--accent, #7eb8f7); font-family: var(--font-mono); font-size: 12px; white-space: nowrap; }
+  .details-cell { color: var(--muted); font-size: 11px; max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+  .details-cell:hover { color: var(--text); }
+  .ts-cell { color: var(--muted); white-space: nowrap; }
+
+  .empty-state { padding: 60px; text-align: center; color: var(--muted); font-family: var(--font-mono); font-size: 13px; }
+
+  /* Details popover */
+  #detail-pop {
+    display: none; position: fixed; z-index: 500;
+    background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 14px; max-width: 380px; font-family: var(--font-mono); font-size: 12px;
+    color: var(--text); box-shadow: 0 8px 32px rgba(0,0,0,0.5); line-height: 1.6;
+    white-space: pre-wrap; word-break: break-all;
+  }
+
+  /* Toast */
+  #toast { position: fixed; bottom: 24px; right: 24px; padding: 10px 16px; border-radius: var(--radius); font-family: var(--font-mono); font-size: 13px; opacity: 0; transform: translateY(8px); transition: all 0.25s; pointer-events: none; z-index: 9999; max-width: 340px; border: 1px solid; }
+  #toast.show    { opacity: 1; transform: translateY(0); }
+  #toast.success { background: var(--green-dim); color: var(--green); border-color: var(--green); }
+  #toast.error   { background: var(--red-dim);   color: var(--red);   border-color: var(--red); }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinning { animation: spin 0.8s linear infinite; display: inline-block; }
+
+  .export-btn { margin-left: auto; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo"><div class="logo-icon">▸</div>exabgp · history</div>
+  <div class="header-right">
+    <a href="/" style="text-decoration:none"><button class="btn btn-ghost">← back</button></a>
+    <a href="/logout" style="text-decoration:none"><button class="btn btn-ghost">⎋ logout</button></a>
+  </div>
+</header>
+
+<main>
+
+  <!-- Filters -->
+  <div class="filters">
+    <div class="filter-group">
+      <label class="filter-label">type</label>
+      <select id="f-type" onchange="loadHistory()">
+        <option value="all">all types</option>
+        <option value="route">route</option>
+        <option value="rbth">rbth</option>
+        <option value="flowspec">flowspec</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label class="filter-label">operation</label>
+      <select id="f-op" onchange="loadHistory()">
+        <option value="all">all operations</option>
+        <option value="announce">announce</option>
+        <option value="withdraw">withdraw</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label class="filter-label">from date</label>
+      <input type="date" id="f-from" onchange="loadHistory()" />
+    </div>
+    <div class="filter-group">
+      <label class="filter-label">to date</label>
+      <input type="date" id="f-to" onchange="loadHistory()" />
+    </div>
+    <div class="filter-group">
+      <label class="filter-label">search target</label>
+      <input type="text" id="f-search" placeholder="prefix, ip, src/dst..." oninput="filterTable()" style="min-width:180px" />
+    </div>
+    <div class="filter-group">
+      <button class="btn btn-ghost" onclick="resetFilters()">↺ reset</button>
+    </div>
+    <div class="filter-group export-btn">
+      <button class="btn btn-green" onclick="exportCsv()">⬇ export csv</button>
+    </div>
+  </div>
+
+  <div class="history-stats">
+    <span>showing <strong id="stat-shown">—</strong> of <strong id="stat-total">—</strong> records</span>
+    <span>·</span>
+    <span>retention: <strong id="stat-retention">90</strong> days</span>
+    <span>·</span>
+    <span id="stat-updated" style="color:var(--muted)">—</span>
+  </div>
+
+  <div class="table-wrap">
+    <table id="history-table">
+      <thead>
+        <tr>
+          <th onclick="sortBy('timestamp')">timestamp ↕</th>
+          <th onclick="sortBy('operation')">operation ↕</th>
+          <th onclick="sortBy('type')">type ↕</th>
+          <th onclick="sortBy('target')">target ↕</th>
+          <th>details</th>
+          <th>comment</th>
+          <th onclick="sortBy('performed_by')">performed by ↕</th>
+          <th onclick="sortBy('result')">result ↕</th>
+        </tr>
+      </thead>
+      <tbody id="history-tbody"><tr><td colspan="8" class="empty-state">loading...</td></tr></tbody>
+    </table>
+  </div>
+
+</main>
+
+<div id="detail-pop"></div>
+<div id="toast"></div>
+
+<script>
+  let allRows   = [];
+  let sortField = 'timestamp';
+  let sortAsc   = false;
+  let toastTimer;
+
+  // ── Init ──────────────────────────────────────────────────────────────────
+
+  async function init() {
+    // Default: last 90 days
+    const today  = new Date();
+    const past90 = new Date();
+    past90.setDate(today.getDate() - 90);
+    document.getElementById('f-from').value = past90.toISOString().slice(0,10);
+    document.getElementById('f-to').value   = today.toISOString().slice(0,10);
+    await loadHistory();
+  }
+
+  function resetFilters() {
+    document.getElementById('f-type').value   = 'all';
+    document.getElementById('f-op').value     = 'all';
+    document.getElementById('f-search').value = '';
+    const today  = new Date();
+    const past90 = new Date();
+    past90.setDate(today.getDate() - 90);
+    document.getElementById('f-from').value = past90.toISOString().slice(0,10);
+    document.getElementById('f-to').value   = today.toISOString().slice(0,10);
+    loadHistory();
+  }
+
+  // ── Load ──────────────────────────────────────────────────────────────────
+
+  async function loadHistory() {
+    const type  = document.getElementById('f-type').value;
+    const op    = document.getElementById('f-op').value;
+    const from  = document.getElementById('f-from').value;
+    const to    = document.getElementById('f-to').value;
+
+    const params = new URLSearchParams({ limit: 2000 });
+    if (type !== 'all') params.set('type', type);
+    if (op   !== 'all') params.set('operation', op);
+    if (from) params.set('from', from);
+    if (to)   params.set('to', to);
+
+    try {
+      const res  = await fetch(`/history/data?${params}`);
+      const data = await res.json();
+      allRows    = data.history || [];
+      document.getElementById('stat-total').textContent   = allRows.length;
+      document.getElementById('stat-updated').textContent = 'updated ' + new Date().toLocaleTimeString();
+      renderTable();
+    } catch {
+      document.getElementById('history-tbody').innerHTML =
+        `<tr><td colspan="8" class="empty-state" style="color:var(--red)">cannot reach api</td></tr>`;
+    }
+  }
+
+  // ── Render ────────────────────────────────────────────────────────────────
+
+  function renderTable() {
+    const search = document.getElementById('f-search').value.toLowerCase();
+    let rows = allRows;
+
+    if (search) {
+      rows = rows.filter(r =>
+        (r.target  || '').toLowerCase().includes(search) ||
+        (r.comment || '').toLowerCase().includes(search) ||
+        (r.details || '').toLowerCase().includes(search)
+      );
+    }
+
+    // Sort
+    rows = [...rows].sort((a, b) => {
+      const av = a[sortField] || '';
+      const bv = b[sortField] || '';
+      return sortAsc ? av.localeCompare(bv) : bv.localeCompare(av);
+    });
+
+    document.getElementById('stat-shown').textContent = rows.length;
+
+    if (!rows.length) {
+      document.getElementById('history-tbody').innerHTML =
+        `<tr><td colspan="8" class="empty-state">no records found</td></tr>`;
+      return;
+    }
+
+    document.getElementById('history-tbody').innerHTML = rows.map(r => {
+      const opBadge   = r.operation === 'announce'
+        ? `<span class="badge badge-announce">▲ announce</span>`
+        : `<span class="badge badge-withdraw">▼ withdraw</span>`;
+
+      const typeBadge = r.type === 'route'    ? `<span class="badge badge-route">route</span>`
+                      : r.type === 'rbth'     ? `<span class="badge badge-rbth">rbth</span>`
+                      : `<span class="badge badge-flow">flowspec</span>`;
+
+      const resBadge  = r.result === 'ok'
+        ? `<span class="badge badge-ok">✓ ok</span>`
+        : `<span class="badge badge-error">✕ error</span>`;
+
+      const detailStr = r.details ? formatDetails(r.details) : '—';
+      const comment   = r.comment || '';
+      const ts        = (r.timestamp || '').replace('T', ' ');
+
+      return `<tr>
+        <td class="ts-cell">${ts}</td>
+        <td>${opBadge}</td>
+        <td>${typeBadge}</td>
+        <td class="target-cell" title="${r.target}">${r.target}</td>
+        <td class="details-cell" title="${detailStr}" onclick="showDetail(event,'${escHtml(detailStr)}')">${detailStr}</td>
+        <td class="comment-cell" title="${escHtml(comment)}">${comment || '<span class="muted">—</span>'}</td>
+        <td class="performer-cell">${r.performed_by || '<span class="muted">—</span>'}</td>
+        <td>${resBadge}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  function formatDetails(raw) {
+    try {
+      const obj = JSON.parse(raw);
+      return Object.entries(obj)
+        .filter(([, v]) => v !== null && v !== undefined && v !== '')
+        .map(([k, v]) => `${k}=${v}`)
+        .join(' | ');
+    } catch {
+      return raw;
+    }
+  }
+
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+
+  // ── Filter ────────────────────────────────────────────────────────────────
+
+  function filterTable() { renderTable(); }
+
+  // ── Sort ──────────────────────────────────────────────────────────────────
+
+  function sortBy(field) {
+    if (sortField === field) sortAsc = !sortAsc;
+    else { sortField = field; sortAsc = false; }
+    renderTable();
+  }
+
+  // ── Details popover ───────────────────────────────────────────────────────
+
+  function showDetail(e, text) {
+    const pop = document.getElementById('detail-pop');
+    try {
+      // Try to pretty-print if it looks like JSON
+      const decoded = text.replace(/\|/g, '\n');
+      pop.textContent = decoded;
+    } catch {
+      pop.textContent = text;
+    }
+    pop.style.display = 'block';
+    pop.style.left    = Math.min(e.clientX + 12, window.innerWidth - 400) + 'px';
+    pop.style.top     = Math.min(e.clientY + 12, window.innerHeight - 200) + 'px';
+  }
+
+  document.addEventListener('click', e => {
+    if (!e.target.classList.contains('details-cell')) {
+      document.getElementById('detail-pop').style.display = 'none';
+    }
+  });
+
+  // ── Export CSV ────────────────────────────────────────────────────────────
+
+  function exportCsv() {
+    const search = document.getElementById('f-search').value.toLowerCase();
+    let rows = allRows;
+    if (search) {
+      rows = rows.filter(r =>
+        (r.target  || '').toLowerCase().includes(search) ||
+        (r.comment || '').toLowerCase().includes(search) ||
+        (r.details || '').toLowerCase().includes(search)
+      );
+    }
+
+    const header = ['timestamp','operation','type','target','details','comment','result'];
+    const csv    = [
+      header.join(','),
+      ...rows.map(r => header.map(h => {
+        const val = r[h] || '';
+        return `"${String(val).replace(/"/g, '""')}"`;
+      }).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csv], {type: 'text/csv'});
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `exabgp-history-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast(`exported ${rows.length} records`, 'success');
+  }
+
+  // ── Toast ─────────────────────────────────────────────────────────────────
+
+  function toast(msg, type = 'success') {
+    const el = document.getElementById('toast');
+    el.textContent = msg; el.className = `show ${type}`;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { el.className = ''; }, 3000);
+  }
+
+  init();
+</script>
+</body>
+</html>

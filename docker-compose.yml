@@ -1,0 +1,49 @@
+networks:
+  backend:
+    driver: bridge
+
+services:
+  exabgp:
+    image: ghcr.io/exa-networks/exabgp:5.0.9
+    command: /etc/exabgp/exabgp.conf
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      - ./exabgp.conf:/etc/exabgp/exabgp.conf:ro
+      - ./exabgp-run:/run
+    environment:
+      - EXABGP_LOG_LEVEL=INFO
+      - EXABGP_API_ACK=true
+
+  api:
+    build:
+      context: ./api
+    networks:
+      - backend
+    env_file:
+      - .env
+    restart: unless-stopped
+    volumes:
+      - ./exabgp-run:/opt/exabgp/run
+      - ./api/static:/app/static
+    depends_on:
+      - exabgp
+
+  haproxy:
+    build:
+      context: ./haproxy
+    networks:
+      - backend
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      TLS_CN: "${TLS_CN:-exabgp-manager}"
+      TLS_ORG: "${TLS_ORG:-ExaBGP Manager}"
+      TLS_COUNTRY: "${TLS_COUNTRY:-US}"
+      TLS_DAYS: "${TLS_DAYS:-3650}"
+    restart: unless-stopped
+    volumes:
+      - ./haproxy-certs:/etc/ssl/haproxy
+    depends_on:
+      - api

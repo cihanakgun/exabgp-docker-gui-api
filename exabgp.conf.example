@@ -1,0 +1,14 @@
+neighbor 192.168.199.41 {
+    router-id 192.168.196.20;
+    local-address 192.168.196.20;
+    local-as 65000;
+    peer-as 65001;
+    capability {
+        add-path send/receive;
+    }
+    family {
+        ipv4 unicast;
+        ipv4 flow;
+        ipv6 unicast;
+    }
+}
