@@ -1,0 +1,34 @@
+name: ceos
+topology:
+  nodes:
+    router1:
+      kind: arista_ceos
+      startup-config: configs/router1-startup-config.cfg
+      image: ceosimage:4.36.1F
+    router2:
+      kind: arista_ceos
+      startup-config: configs/router2-startup-config.cfg
+      image: ceosimage:4.36.1F
+    isp1:
+      kind: arista_ceos
+      startup-config: configs/isp1-startup-config.cfg
+      image: ceosimage:4.36.1F
+    isp2:
+      kind: arista_ceos
+      startup-config: configs/isp2-startup-config.cfg
+      image: ceosimage:4.36.1F
+    ext-lan:
+      kind: bridge
+  links:
+    # router-to-router link
+    - endpoints: ["router1:eth4", "router2:eth4"]
+    # router to isp links
+    - endpoints: ["router1:eth1", "isp1:eth1"]
+    - endpoints: ["router1:eth2", "isp2:eth1"]
+    - endpoints: ["router2:eth1", "isp1:eth2"]
+    - endpoints: ["router2:eth2", "isp2:eth2"]
+    # isp-to-isp connection (use eth3, eth1/eth2 are taken by routers)
+    - endpoints: ["isp1:eth3", "isp2:eth3"]
+    # routers attach to existing host bridge ext-lan
+    - endpoints: ["router1:eth3", "ext-lan:r1eth3"]
+    - endpoints: ["router2:eth3", "ext-lan:r2eth3"]

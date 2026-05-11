@@ -19,3 +19,11 @@ DB
 *.db
 
 .DS_Store
+
+docs/examples/arista_eos/clab-ceos
+docs/examples/arista_eos/exabgp-run
+docs/examples/arista_eos/haproxy-certs
+docs/examples/arista_eos/isp-topology.yml.annotations.json
+# Allow example files under docs/examples/ even if their names match ignore patterns above
+!docs/examples/**/.env
+!docs/examples/**/exabgp.conf

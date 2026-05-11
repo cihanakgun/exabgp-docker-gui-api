@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ExaBGP · Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0d1117; --bg2: #161b22; --bg3: #21262d;
+    --border: #30363d; --text: #e6edf3; --muted: #7d8590;
+    --green: #3fb950; --green-dim: #1a4a1f;
+    --red: #f85149;   --red-dim:   #4a1414;
+    --blue: #58a6ff;  --blue-dim:  #1a3a5c;
+    --yellow: #d29922;
+    --orange: #e3722a;
+    --font-mono: 'JetBrains Mono', monospace;
+    --font-sans: 'Inter', sans-serif;
+    --radius: 6px;
+  }
+  body { background: var(--bg); color: var(--text); font-family: var(--font-sans); font-size: 14px; min-height: 100vh; }
+
+  header { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 0 24px; height: 56px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+  .logo { display: flex; align-items: center; gap: 10px; font-family: var(--font-mono); font-size: 15px; font-weight: 600; color: var(--green); }
+  .logo-icon { width: 28px; height: 28px; background: var(--green-dim); border: 1px solid var(--green); border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+  .header-right { display: flex; align-items: center; gap: 10px; }
+
+  .btn { border-radius: var(--radius); cursor: pointer; font-size: 13px; font-family: var(--font-sans); padding: 5px 12px; transition: all 0.15s; display: inline-flex; align-items: center; gap: 5px; border: 1px solid; background: none; }
+  .btn-ghost  { border-color: var(--border); color: var(--muted); }
+  .btn-ghost:hover  { border-color: var(--blue); color: var(--blue); }
+  .btn-green  { background: var(--green-dim); border-color: var(--green); color: var(--green); font-weight: 500; }
+  .btn-green:hover  { background: #26663b; }
+  .btn-red    { background: var(--red-dim); border-color: var(--red); color: var(--red); font-weight: 500; }
+  .btn-red:hover    { background: #6b1c1c; }
+  .btn-blue   { background: var(--blue-dim); border-color: var(--blue); color: var(--blue); font-weight: 500; }
+  .btn-blue:hover   { background: #1e4a73; }
+  .btn-yellow { border-color: var(--yellow); color: var(--yellow); }
+  .btn-yellow:hover { background: rgba(210,153,34,0.1); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-icon { background: none; border: 1px solid var(--border); color: var(--muted); width: 26px; height: 26px; border-radius: var(--radius); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: all 0.15s; font-size: 11px; }
+  .btn-icon.del:hover  { border-color: var(--red);  color: var(--red);  background: var(--red-dim); }
+  .btn-icon.edit:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-dim); }
+
+  main { max-width: 1000px; margin: 0 auto; padding: 24px; }
+
+  /* Sections */
+  .section { margin-bottom: 40px; }
+  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .section-title { font-family: var(--font-mono); font-size: 13px; color: var(--text); font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .section-sub   { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+  /* Table */
+  .table-wrap { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 12px; }
+  table { width: 100%; border-collapse: collapse; }
+  thead th { background: var(--bg3); padding: 9px 14px; text-align: left; font-family: var(--font-mono); font-size: 11px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--bg3); }
+  tbody tr.env-row { opacity: 0.6; }
+  td { padding: 10px 14px; vertical-align: middle; font-size: 13px; }
+  .mono { font-family: var(--font-mono); }
+  .muted { color: var(--muted); font-size: 11px; }
+
+  /* Role badge */
+  .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; font-family: var(--font-mono); }
+  .badge-admin    { background: rgba(88,166,255,0.12); color: var(--blue);  border: 1px solid #1a4a7a; }
+  .badge-readonly { background: var(--bg3);            color: var(--muted); border: 1px solid var(--border); }
+  .badge-env      { background: rgba(210,153,34,0.12); color: var(--yellow); border: 1px solid rgba(210,153,34,0.3); font-size: 10px; }
+
+  .empty-state { padding: 36px; text-align: center; color: var(--muted); font-family: var(--font-mono); font-size: 13px; }
+
+  /* Import/Export bar */
+  .io-bar { display: flex; gap: 10px; align-items: center; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; margin-bottom: 32px; }
+  .io-bar-text { font-size: 13px; color: var(--muted); flex: 1; }
+  .io-bar-text strong { color: var(--text); }
+
+  /* Modal */
+  .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 200; align-items: center; justify-content: center; }
+  .overlay.open { display: flex; }
+  .modal { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; width: 460px; max-width: 95vw; padding: 24px; }
+  .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+  .modal-title { font-family: var(--font-mono); font-size: 14px; font-weight: 600; color: var(--text); }
+  .btn-close { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 18px; line-height: 1; }
+  .btn-close:hover { color: var(--text); }
+
+  .field { margin-bottom: 14px; }
+  label.field-label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 5px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+  input[type="text"], input[type="password"], select {
+    width: 100%; background: var(--bg3); border: 1px solid var(--border); color: var(--text);
+    padding: 8px 12px; border-radius: var(--radius); font-family: var(--font-mono);
+    font-size: 13px; outline: none; transition: border-color 0.15s;
+  }
+  input:focus, select:focus { border-color: var(--blue); }
+  input::placeholder { color: var(--muted); }
+  .field-hint { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .modal-footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
+
+  /* Token reveal box */
+  .token-box { background: var(--bg3); border: 1px solid var(--green); border-radius: var(--radius); padding: 14px; margin-bottom: 16px; }
+  .token-box-label { font-size: 11px; color: var(--green); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; font-weight: 500; }
+  .token-value { font-family: var(--font-mono); font-size: 12px; color: var(--text); word-break: break-all; line-height: 1.6; }
+  .token-warn { font-size: 11px; color: var(--yellow); margin-top: 8px; }
+
+  /* Toast */
+  #toast { position: fixed; bottom: 24px; right: 24px; padding: 10px 16px; border-radius: var(--radius); font-family: var(--font-mono); font-size: 13px; opacity: 0; transform: translateY(8px); transition: all 0.25s; pointer-events: none; z-index: 9999; max-width: 340px; border: 1px solid; }
+  #toast.show    { opacity: 1; transform: translateY(0); }
+  #toast.success { background: var(--green-dim); color: var(--green); border-color: var(--green); }
+  #toast.error   { background: var(--red-dim);   color: var(--red);   border-color: var(--red); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo"><div class="logo-icon">▸</div>exabgp · admin</div>
+  <div class="header-right">
+    <a href="/"       style="text-decoration:none"><button class="btn btn-ghost">← dashboard</button></a>
+    <a href="/logout" style="text-decoration:none"><button class="btn btn-ghost">⎋ logout</button></a>
+  </div>
+</header>
+
+<main>
+
+  <!-- Import / Export -->
+  <div class="io-bar">
+    <div class="io-bar-text">
+      <strong>Import / Export</strong> — transfer users and tokens between instances.
+      Passwords and tokens are stored as hashes — credentials are never exposed.
+    </div>
+    <button class="btn btn-yellow" onclick="exportUsers()">⬇ export JSON</button>
+    <label class="btn btn-yellow" style="cursor:pointer">
+      ⬆ import JSON
+      <input type="file" id="import-file" accept=".json" style="display:none" onchange="importUsers(event)" />
+    </label>
+  </div>
+
+  <!-- Users -->
+  <div class="section">
+    <div class="section-header">
+      <div>
+        <div class="section-title">👤 users</div>
+        <div class="section-sub">GUI login accounts. Env admin account is always active and cannot be edited here.</div>
+      </div>
+      <button class="btn btn-green" onclick="openAddUser()">+ add user</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>username</th>
+          <th>role</th>
+          <th style="width:160px">created at</th>
+          <th style="text-align:right;width:100px">actions</th>
+        </tr></thead>
+        <tbody id="users-tbody"><tr><td colspan="4" class="empty-state">loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Tokens -->
+  <div class="section">
+    <div class="section-header">
+      <div>
+        <div class="section-title">🔑 api tokens</div>
+        <div class="section-sub">Bearer tokens for REST API access. Token values are shown once on creation.</div>
+      </div>
+      <button class="btn btn-green" onclick="openAddToken()">+ add token</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>name</th>
+          <th>role</th>
+          <th style="width:160px">created at</th>
+          <th style="text-align:right;width:80px">actions</th>
+        </tr></thead>
+        <tbody id="tokens-tbody"><tr><td colspan="4" class="empty-state">loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+</main>
+
+<!-- Add/Edit User modal -->
+<div class="overlay" id="user-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="user-modal-title">add user</span>
+      <button class="btn-close" onclick="closeUserModal()">✕</button>
+    </div>
+    <div class="field">
+      <label class="field-label">username</label>
+      <input type="text" id="user-username" placeholder="noc_operator" />
+    </div>
+    <div class="field">
+      <label class="field-label">password</label>
+      <input type="password" id="user-password" placeholder="••••••••" />
+      <div class="field-hint" id="user-password-hint">minimum 8 characters</div>
+    </div>
+    <div class="field">
+      <label class="field-label">role</label>
+      <select id="user-role">
+        <option value="readonly">readonly — view only</option>
+        <option value="admin">admin — full access</option>
+      </select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeUserModal()">cancel</button>
+      <button class="btn btn-green" id="btn-user-submit" onclick="submitUser()">create</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Token modal -->
+<div class="overlay" id="token-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">add api token</span>
+      <button class="btn-close" onclick="closeTokenModal()">✕</button>
+    </div>
+    <!-- Step 1: form -->
+    <div id="token-form">
+      <div class="field">
+        <label class="field-label">token name / label</label>
+        <input type="text" id="token-name" placeholder="automation-script" />
+        <div class="field-hint">descriptive name to identify this token</div>
+      </div>
+      <div class="field">
+        <label class="field-label">role</label>
+        <select id="token-role">
+          <option value="readonly">readonly — read-only API access</option>
+          <option value="admin">admin — full API access</option>
+        </select>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeTokenModal()">cancel</button>
+        <button class="btn btn-green" id="btn-token-submit" onclick="submitToken()">generate</button>
+      </div>
+    </div>
+    <!-- Step 2: reveal -->
+    <div id="token-reveal" style="display:none">
+      <div class="token-box">
+        <div class="token-box-label">⚠ your new token — copy it now</div>
+        <div class="token-value" id="token-value-display"></div>
+        <div class="token-warn">This token will never be shown again. Store it securely.</div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-blue" onclick="copyToken()">📋 copy token</button>
+        <button class="btn btn-green" onclick="closeTokenModal()">done</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm delete modal -->
+<div class="overlay" id="confirm-overlay">
+  <div class="modal" style="width:400px">
+    <div class="modal-header">
+      <span class="modal-title" id="confirm-title">confirm delete</span>
+      <button class="btn-close" onclick="closeConfirm()">✕</button>
+    </div>
+    <p style="color:var(--muted);font-size:13px;margin-bottom:8px" id="confirm-msg"></p>
+    <p style="font-family:var(--font-mono);color:var(--red);font-size:13px;margin-bottom:16px" id="confirm-detail"></p>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeConfirm()">cancel</button>
+      <button class="btn btn-red"   onclick="confirmDelete()" id="btn-confirm">delete</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+  let editingUserId = null;
+  let confirmTarget = null;
+  let newTokenValue = '';
+  let toastTimer;
+
+  async function loadAll() {
+    await Promise.all([loadUsers(), loadTokens()]);
+  }
+
+  // ── Users ─────────────────────────────────────────────────────────────────
+
+  async function loadUsers() {
+    try {
+      const res  = await fetch('/admin/users');
+      const data = await res.json();
+      const tbody = document.getElementById('users-tbody');
+      if (!data.users.length) {
+        tbody.innerHTML = `<tr><td colspan="4" class="empty-state">no users</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = data.users.map(u => {
+        const roleBadge = u.role === 'admin'
+          ? `<span class="badge badge-admin">admin</span>`
+          : `<span class="badge badge-readonly">readonly</span>`;
+        const envBadge  = u.is_env ? `<span class="badge badge-env">env</span>` : '';
+        const actions   = u.is_env
+          ? `<td style="text-align:right"><span class="muted">—</span></td>`
+          : `<td style="text-align:right">
+              <div style="display:flex;gap:4px;justify-content:flex-end">
+                <button class="btn-icon edit" title="change password / role" onclick="openEditUser(${u.id},'${u.username}','${u.role}')">✎</button>
+                <button class="btn-icon del"  title="delete user" onclick="openConfirmUser(${u.id},'${u.username}')">✕</button>
+              </div>
+            </td>`;
+        return `<tr class="${u.is_env ? 'env-row' : ''}">
+          <td class="mono">${u.username} ${envBadge}</td>
+          <td>${roleBadge}</td>
+          <td class="muted mono">${u.created_at}</td>
+          ${actions}
+        </tr>`;
+      }).join('');
+    } catch { toast('failed to load users', 'error'); }
+  }
+
+  function openAddUser() {
+    editingUserId = null;
+    document.getElementById('user-modal-title').textContent  = 'add user';
+    document.getElementById('btn-user-submit').textContent   = 'create';
+    document.getElementById('user-username').value           = '';
+    document.getElementById('user-username').disabled        = false;
+    document.getElementById('user-password').value           = '';
+    document.getElementById('user-password-hint').textContent = 'minimum 8 characters';
+    document.getElementById('user-role').value               = 'readonly';
+    document.getElementById('user-overlay').classList.add('open');
+    document.getElementById('user-username').focus();
+  }
+
+  function openEditUser(id, username, role) {
+    editingUserId = id;
+    document.getElementById('user-modal-title').textContent  = `edit user: ${username}`;
+    document.getElementById('btn-user-submit').textContent   = 'update';
+    document.getElementById('user-username').value           = username;
+    document.getElementById('user-username').disabled        = true;
+    document.getElementById('user-password').value           = '';
+    document.getElementById('user-password-hint').textContent = 'leave blank to keep current password';
+    document.getElementById('user-role').value               = role;
+    document.getElementById('user-overlay').classList.add('open');
+    document.getElementById('user-password').focus();
+  }
+
+  function closeUserModal() { document.getElementById('user-overlay').classList.remove('open'); }
+
+  async function submitUser() {
+    const username = document.getElementById('user-username').value.trim();
+    const password = document.getElementById('user-password').value;
+    const role     = document.getElementById('user-role').value;
+
+    if (!editingUserId && (!username || password.length < 8)) {
+      toast('username required and password must be at least 8 characters', 'error'); return;
+    }
+
+    const btn = document.getElementById('btn-user-submit');
+    btn.disabled = true;
+    try {
+      let res;
+      if (editingUserId) {
+        const body = { role };
+        if (password) {
+          if (password.length < 8) { toast('password must be at least 8 characters', 'error'); return; }
+          body.password = password;
+        }
+        res = await fetch(`/admin/users/${editingUserId}`, {
+          method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
+        });
+      } else {
+        res = await fetch('/admin/users', {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ username, password, role })
+        });
+      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'error');
+      toast(editingUserId ? `user updated` : `user ${username} created`, 'success');
+      closeUserModal();
+      loadUsers();
+    } catch (e) { toast(e.message, 'error'); }
+    finally { btn.disabled = false; }
+  }
+
+  // ── Tokens ────────────────────────────────────────────────────────────────
+
+  async function loadTokens() {
+    try {
+      const res  = await fetch('/admin/tokens');
+      const data = await res.json();
+      const tbody = document.getElementById('tokens-tbody');
+      if (!data.tokens.length) {
+        tbody.innerHTML = `<tr><td colspan="4" class="empty-state">no tokens</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = data.tokens.map(t => {
+        const roleBadge = t.role === 'admin'
+          ? `<span class="badge badge-admin">admin</span>`
+          : `<span class="badge badge-readonly">readonly</span>`;
+        const envBadge  = t.is_env ? `<span class="badge badge-env">env</span>` : '';
+        const actions   = t.is_env
+          ? `<td style="text-align:right"><span class="muted">—</span></td>`
+          : `<td style="text-align:right">
+              <button class="btn-icon del" title="revoke token" onclick="openConfirmToken(${t.id},'${t.name}')">✕</button>
+            </td>`;
+        return `<tr class="${t.is_env ? 'env-row' : ''}">
+          <td class="mono">${t.name} ${envBadge}</td>
+          <td>${roleBadge}</td>
+          <td class="muted mono">${t.created_at}</td>
+          ${actions}
+        </tr>`;
+      }).join('');
+    } catch { toast('failed to load tokens', 'error'); }
+  }
+
+  function openAddToken() {
+    document.getElementById('token-name').value  = '';
+    document.getElementById('token-role').value  = 'readonly';
+    document.getElementById('token-form').style.display   = '';
+    document.getElementById('token-reveal').style.display = 'none';
+    document.getElementById('token-overlay').classList.add('open');
+    document.getElementById('token-name').focus();
+  }
+
+  function closeTokenModal() {
+    document.getElementById('token-overlay').classList.remove('open');
+    newTokenValue = '';
+  }
+
+  async function submitToken() {
+    const name = document.getElementById('token-name').value.trim();
+    const role = document.getElementById('token-role').value;
+    if (!name) { toast('token name required', 'error'); return; }
+    const btn = document.getElementById('btn-token-submit');
+    btn.disabled = true;
+    try {
+      const res  = await fetch('/admin/tokens', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ name, role })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'error');
+      newTokenValue = data.token;
+      document.getElementById('token-value-display').textContent = data.token;
+      document.getElementById('token-form').style.display   = 'none';
+      document.getElementById('token-reveal').style.display = '';
+      loadTokens();
+    } catch (e) { toast(e.message, 'error'); }
+    finally { btn.disabled = false; }
+  }
+
+  function copyToken() {
+    navigator.clipboard.writeText(newTokenValue)
+      .then(() => toast('token copied to clipboard', 'success'))
+      .catch(() => toast('copy failed — select and copy manually', 'error'));
+  }
+
+  // ── Confirm delete ────────────────────────────────────────────────────────
+
+  function openConfirmUser(id, username) {
+    confirmTarget = { type: 'user', id };
+    document.getElementById('confirm-title').textContent  = 'delete user';
+    document.getElementById('confirm-msg').textContent    = 'The following user account will be permanently deleted:';
+    document.getElementById('confirm-detail').textContent = username;
+    document.getElementById('confirm-overlay').classList.add('open');
+  }
+
+  function openConfirmToken(id, name) {
+    confirmTarget = { type: 'token', id };
+    document.getElementById('confirm-title').textContent  = 'revoke token';
+    document.getElementById('confirm-msg').textContent    = 'The following API token will be permanently revoked:';
+    document.getElementById('confirm-detail').textContent = name;
+    document.getElementById('confirm-overlay').classList.add('open');
+  }
+
+  function closeConfirm() { document.getElementById('confirm-overlay').classList.remove('open'); }
+
+  async function confirmDelete() {
+    const btn = document.getElementById('btn-confirm');
+    btn.disabled = true;
+    try {
+      const url = confirmTarget.type === 'user'
+        ? `/admin/users/${confirmTarget.id}`
+        : `/admin/tokens/${confirmTarget.id}`;
+      const res  = await fetch(url, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'error');
+      toast(confirmTarget.type === 'user' ? 'user deleted' : 'token revoked', 'success');
+      closeConfirm();
+      if (confirmTarget.type === 'user') loadUsers(); else loadTokens();
+    } catch (e) { toast(e.message, 'error'); }
+    finally { btn.disabled = false; }
+  }
+
+  // ── Export / Import ───────────────────────────────────────────────────────
+
+  function exportUsers() {
+    window.location.href = '/admin/export';
+  }
+
+  async function importUsers(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      if (!data.users && !data.tokens) {
+        toast('invalid export file format', 'error'); return;
+      }
+      const res  = await fetch('/admin/import', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(data)
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.message || 'import failed');
+      toast(
+        `imported ${result.imported_users} user(s) and ${result.imported_tokens} token(s)` +
+        (result.skipped_users + result.skipped_tokens > 0
+          ? ` (${result.skipped_users + result.skipped_tokens} skipped)` : ''),
+        'success'
+      );
+      loadAll();
+    } catch (e) { toast(e.message || 'import failed', 'error'); }
+    event.target.value = '';
+  }
+
+  // ── Utils ─────────────────────────────────────────────────────────────────
+
+  function toast(msg, type = 'success') {
+    const el = document.getElementById('toast');
+    el.textContent = msg; el.className = `show ${type}`;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { el.className = ''; }, 4000);
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { closeUserModal(); closeTokenModal(); closeConfirm(); }
+    if (e.key === 'Enter') {
+      if (document.getElementById('user-overlay').classList.contains('open'))  submitUser();
+      if (document.getElementById('token-overlay').classList.contains('open') &&
+          document.getElementById('token-form').style.display !== 'none')      submitToken();
+    }
+  });
+
+  ['user-overlay','token-overlay','confirm-overlay'].forEach(id => {
+    document.getElementById(id).addEventListener('click', e => {
+      if (e.target === e.currentTarget) { closeUserModal(); closeTokenModal(); closeConfirm(); }
+    });
+  });
+
+  loadAll();
+</script>
+</body>
+</html>
