@@ -526,9 +526,113 @@
   </div>
 </div>
 
+<!-- Session expiry warning modal -->
+<div class="overlay" id="session-overlay">
+  <div class="modal" style="width:440px">
+    <div class="modal-header"><span class="modal-title">session expiring</span></div>
+    <p class="confirm-msg">Your session will expire in <span id="session-countdown" style="color:var(--red);font-weight:600">60</span>s due to inactivity.</p>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="sessionLogoutNow()">log out</button>
+      <button class="btn btn-green" onclick="sessionExtend()">stay logged in</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
+  // ── Global fetch wrapper ──────────────────────────────────────────────────
+  // - tags every request as XHR so the server can return 401 JSON instead of HTML
+  // - flags every user-initiated fetch with X-User-Action: 1 so the server bumps
+  //   the idle timer; pass {_background:true} on poll calls to opt out
+  // - on 401 (session expired/invalid), redirects to /login
+  (function () {
+    const _origFetch = window.fetch;
+    window.fetch = function (input, init) {
+      init = init || {};
+      const headers = new Headers(init.headers || {});
+      headers.set('X-Requested-With', 'XMLHttpRequest');
+      if (!init._background) headers.set('X-User-Action', '1');
+      init.headers = headers;
+      const allow401 = init._allow401 === true;
+      return _origFetch(input, init).then(function (res) {
+        if (res.status === 401 && !allow401) {
+          window.location.href = '/login';
+        }
+        return res;
+      });
+    };
+  })();
+
+  // ── Session expiry watchdog ───────────────────────────────────────────────
+  let _sessionWarnShown   = false;
+  let _sessionCountdownId = null;
+
+  async function checkSession() {
+    let data;
+    try {
+      const res = await fetch('/session/status', {_background: true, _allow401: true});
+      if (res.status === 401) { window.location.href = '/login'; return; }
+      data = await res.json();
+    } catch { return; }
+
+    if (!data.logged_in) { window.location.href = '/login'; return; }
+
+    const warn = data.warn_before || 60;
+    if (data.expires_in <= 0) {
+      window.location.href = '/login';
+      return;
+    }
+    if (data.expires_in <= warn) {
+      showSessionWarning(data.expires_in);
+    } else {
+      hideSessionWarning();
+    }
+  }
+
+  function showSessionWarning(secondsLeft) {
+    const overlay = document.getElementById('session-overlay');
+    const cd      = document.getElementById('session-countdown');
+    cd.textContent = secondsLeft;
+    if (!_sessionWarnShown) {
+      _sessionWarnShown = true;
+      overlay.classList.add('open');
+      // local countdown ticker (server is polled every 10s so we tick locally)
+      _sessionCountdownId = setInterval(function () {
+        const current = parseInt(cd.textContent, 10);
+        if (isNaN(current) || current <= 1) {
+          clearInterval(_sessionCountdownId);
+          window.location.href = '/login';
+          return;
+        }
+        cd.textContent = current - 1;
+      }, 1000);
+    }
+  }
+
+  function hideSessionWarning() {
+    if (!_sessionWarnShown) return;
+    _sessionWarnShown = false;
+    if (_sessionCountdownId) { clearInterval(_sessionCountdownId); _sessionCountdownId = null; }
+    document.getElementById('session-overlay').classList.remove('open');
+  }
+
+  async function sessionExtend() {
+    try {
+      const res = await fetch('/session/touch', {method: 'POST', _allow401: true});
+      if (res.status === 401) { window.location.href = '/login'; return; }
+      hideSessionWarning();
+      checkSession();
+    } catch {}
+  }
+
+  function sessionLogoutNow() {
+    window.location.href = '/logout';
+  }
+
+  // Poll every 10s; first check fires immediately after init.
+  setInterval(checkSession, 10000);
+
   let namedNexthops    = [];
   let routeCommunity   = '';  // ROUTE_COMMUNITY from .env
   let routesCache      = {};  // prefix → [rows] — kept in sync after each loadRoutes
@@ -595,6 +699,7 @@
   }
 
   async function init() {
+    checkSession();
     await loadIdentity();
     await loadNamedNexthops();
     await loadAll();
@@ -902,7 +1007,7 @@
     const dot  = document.getElementById('bgp-dot');
     const text = document.getElementById('bgp-text');
     try {
-      const res  = await fetch('/status');
+      const res  = await fetch('/status', {_background: true});
       if (!res.ok) throw new Error();
       const data = await res.json();
       // poll_interval comes from .env; store it to schedule the next poll

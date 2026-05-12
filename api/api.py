@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify, send_from_directory, session, redirect, url_for
 from flasgger import Swagger
+from datetime import timedelta
 import socket, time, os, functools, sqlite3, threading, logging, ipaddress, json
 import hashlib, secrets, bcrypt
 
@@ -41,6 +42,16 @@ Swagger(app, config=swagger_config, template=swagger_template)
 
 
 app.secret_key    = os.environ.get('FLASK_SECRET_KEY', 'dev-secret')
+
+# Session timeouts (hard-coded, server-authoritative)
+SESSION_IDLE_TIMEOUT     = 1800    # 30 minutes — no user activity
+SESSION_ABSOLUTE_TIMEOUT = 28800   # 8 hours — hard cap from login time
+SESSION_WARN_BEFORE      = 60     # client shows warning N seconds before expiry
+
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(seconds=SESSION_ABSOLUTE_TIMEOUT)
+app.config['SESSION_COOKIE_HTTPONLY']    = True
+app.config['SESSION_COOKIE_SAMESITE']    = 'Lax'
+
 PIPE_IN           = os.environ.get('EXABGP_PIPE_IN',  '/opt/exabgp/run/exabgp.in')
 PIPE_OUT          = os.environ.get('EXABGP_PIPE_OUT', '/opt/exabgp/run/exabgp.out')
 DB_PATH           = os.environ.get('DB_PATH', '/opt/exabgp/run/routes.db')
@@ -317,13 +328,57 @@ def authenticate_token(token):
 
 # Auth decorators
 
+def _is_xhr():
+    """Detect AJAX/JSON requests so we return 401 JSON instead of HTML redirect."""
+    return (
+        request.is_json or
+        request.headers.get('X-Requested-With') == 'XMLHttpRequest' or
+        'application/json' in request.headers.get('Accept', '') or
+        request.path.startswith('/api/')
+    )
+
+
+def _session_unauth(code='unauthorized'):
+    """Return 401 JSON for XHR, redirect to /login for browser navigation."""
+    if _is_xhr():
+        return jsonify({'status': 'error', 'message': code, 'code': code}), 401
+    return redirect(url_for('login'))
+
+
+def _check_session_timeout():
+    """
+    Return None if session is valid, otherwise clear it and return an unauth response.
+    Bumps last_active on every successful check when X-User-Action: 1 header is set.
+    """
+    if not session.get('logged_in'):
+        return _session_unauth()
+
+    now         = int(time.time())
+    login_time  = session.get('login_time', 0)
+    last_active = session.get('last_active', 0)
+
+    if SESSION_ABSOLUTE_TIMEOUT and (now - login_time) > SESSION_ABSOLUTE_TIMEOUT:
+        session.clear()
+        return _session_unauth('session_expired')
+
+    if SESSION_IDLE_TIMEOUT and (now - last_active) > SESSION_IDLE_TIMEOUT:
+        session.clear()
+        return _session_unauth('session_expired')
+
+    # Only requests flagged as user activity reset the idle timer.
+    # Background polls (BGP status, session status) do not bump.
+    if request.headers.get('X-User-Action') == '1':
+        session['last_active'] = now
+
+    return None
+
+
 def require_session(f):
     @functools.wraps(f)
     def decorated(*args, **kwargs):
-        if not session.get('logged_in'):
-            if request.is_json:
-                return jsonify({'status': 'error', 'message': 'unauthorized'}), 401
-            return redirect(url_for('login'))
+        unauth = _check_session_timeout()
+        if unauth is not None:
+            return unauth
         return f(*args, **kwargs)
     return decorated
 
@@ -331,10 +386,9 @@ def require_session(f):
 def require_admin_session(f):
     @functools.wraps(f)
     def decorated(*args, **kwargs):
-        if not session.get('logged_in'):
-            if request.is_json:
-                return jsonify({'status': 'error', 'message': 'unauthorized'}), 401
-            return redirect(url_for('login'))
+        unauth = _check_session_timeout()
+        if unauth is not None:
+            return unauth
         if session.get('role') != 'admin':
             return jsonify({'status': 'error', 'message': 'forbidden'}), 403
         return f(*args, **kwargs)
@@ -1396,9 +1450,13 @@ def login():
         password = request.form.get('password', '')
         identity = authenticate_user(username, password)
         if identity:
-            session['logged_in'] = True
-            session['username']  = identity['username']
-            session['role']      = identity['role']
+            now = int(time.time())
+            session.permanent      = True
+            session['logged_in']   = True
+            session['username']    = identity['username']
+            session['role']        = identity['role']
+            session['login_time']  = now
+            session['last_active'] = now
             return redirect(url_for('index'))
         error = 'Invalid username or password'
     return _login_page(error)
@@ -1408,6 +1466,62 @@ def login():
 def logout():
     session.clear()
     return redirect(url_for('login'))
+
+
+# Session lifecycle endpoints (used by the GUI for idle warning + auto-logout)
+# These endpoints intentionally bypass require_session so they can be polled
+# without resetting the idle timer.
+
+@app.route('/session/status')
+def session_status():
+    """Return remaining lifetime of the current session, or logged_in=false."""
+    if not session.get('logged_in'):
+        return jsonify({'logged_in': False, 'warn_before': SESSION_WARN_BEFORE}), 200
+
+    now         = int(time.time())
+    login_time  = session.get('login_time', 0)
+    last_active = session.get('last_active', 0)
+
+    idle_left     = max(0, SESSION_IDLE_TIMEOUT     - (now - last_active))
+    absolute_left = max(0, SESSION_ABSOLUTE_TIMEOUT - (now - login_time))
+    expires_in    = min(idle_left, absolute_left)
+
+    if expires_in <= 0:
+        session.clear()
+        return jsonify({'logged_in': False, 'warn_before': SESSION_WARN_BEFORE,
+                        'code': 'session_expired'}), 200
+
+    return jsonify({
+        'logged_in':   True,
+        'username':    session.get('username'),
+        'role':        session.get('role'),
+        'expires_in':  expires_in,
+        'idle_left':   idle_left,
+        'absolute_left': absolute_left,
+        'warn_before': SESSION_WARN_BEFORE,
+    })
+
+
+@app.route('/session/touch', methods=['POST'])
+def session_touch():
+    """Explicitly bump last_active. Called by the GUI when the user clicks
+    'stay logged in' on the expiry warning modal."""
+    if not session.get('logged_in'):
+        return _session_unauth()
+
+    now         = int(time.time())
+    login_time  = session.get('login_time', 0)
+    last_active = session.get('last_active', 0)
+
+    if (now - login_time) > SESSION_ABSOLUTE_TIMEOUT:
+        session.clear()
+        return _session_unauth('session_expired')
+    if (now - last_active) > SESSION_IDLE_TIMEOUT:
+        session.clear()
+        return _session_unauth('session_expired')
+
+    session['last_active'] = now
+    return jsonify({'status': 'ok', 'last_active': now})
 
 
 @app.route('/')
