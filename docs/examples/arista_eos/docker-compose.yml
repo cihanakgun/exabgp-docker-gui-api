@@ -2,11 +2,11 @@ services:
   exabgp:
     image: ghcr.io/exa-networks/exabgp:5.0.9
     command: /etc/exabgp/exabgp.conf
-    network_mode: host          # Debian VM'in network namespace'i → 10.100.0.1'e bind
+    network_mode: host
     restart: unless-stopped
     volumes:
       - ./exabgp.conf:/etc/exabgp/exabgp.conf:ro
-      - ./exabgp-run:/run        # API ile FIFO paylaşımı
+      - ./exabgp-run:/run                 # named pipes shared with API
     environment:
       - EXABGP_LOG_LEVEL=INFO
       - EXABGP_API_ACK=true
@@ -31,8 +31,8 @@ services:
     networks:
       - backend
     ports:
-      - "80:80"                  # macOS'tan: http://192.168.139.59
-      - "443:443"                # macOS'tan: https://192.168.139.59
+      - "80:80"
+      - "443:443"
     environment:
       TLS_CN: "${TLS_CN:-exabgp-manager}"
       TLS_ORG: "${TLS_ORG:-ExaBGP Manager}"

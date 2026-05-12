@@ -214,12 +214,28 @@ exabgp-docker-gui-api/
 │   ├── Dockerfile
 │   ├── haproxy.cfg
 │   └── docker-entrypoint.sh
+├── docs/
+│   ├── examples/      ← self-contained reference deployments (containerlab, etc.)
+│   ├── guides/        ← API reference and operator guides
+│   └── images/
 ├── exabgp-run/        ← runtime: named pipes + sqlite db (created during install)
 ├── haproxy-certs/     ← runtime: TLS cert (created during install)
 ├── docker-compose.yml
 ├── exabgp.conf
 └── .env
 ```
+
+---
+
+## Examples
+
+Self-contained reference deployments live under `docs/examples/`. Each subdirectory is a standalone project — `cd` into it, copy/edit its `.env`, and bring it up with its own `docker compose up` (plus any lab tooling the example needs).
+
+| Path | Description |
+|------|-------------|
+| `docs/examples/arista_eos/` | Containerlab topology with two upstream ISPs and two customer-edge routers running Arista cEOS. Ships the full Compose stack (ExaBGP + API + HAProxy), startup-configs for each node, and a `clab-up.sh` helper to bring the lab up end-to-end. Useful for testing simple, multi-nexthop, RBTH and flowspec announces against real BGP peers locally. |
+
+> Example projects use lab-only credentials and private/documentation IP and ASN ranges. Do not reuse their `.env` values in production.
 
 ---
 
